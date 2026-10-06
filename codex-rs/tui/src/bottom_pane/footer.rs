@@ -52,6 +52,8 @@ use crate::render::line_utils::prefix_lines;
 use crate::status::format_tokens_compact;
 use crate::style::secondary_text_style;
 use crate::ui_consts::FOOTER_INDENT_COLS;
+use crate::wrapping::RtOptions;
+use crate::wrapping::word_wrap_lines;
 use crossterm::event::KeyCode;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -269,12 +271,46 @@ pub(crate) fn footer_height(props: &FooterProps, width: u16) -> u16 {
 
 /// Render a single precomputed footer line.
 pub(crate) fn render_footer_line(area: Rect, buf: &mut Buffer, line: Line<'static>) {
+    render_footer_lines(area, buf, vec![line]);
+}
+
+pub(crate) fn render_footer_lines(area: Rect, buf: &mut Buffer, lines: Vec<Line<'static>>) {
     Paragraph::new(prefix_lines(
-        vec![line],
+        lines,
         " ".repeat(FOOTER_INDENT_COLS).into(),
         " ".repeat(FOOTER_INDENT_COLS).into(),
     ))
     .render(area, buf);
+}
+
+pub(crate) fn wrapped_status_line_rows(
+    area_width: u16,
+    status_line: &Line<'static>,
+    right_width: u16,
+) -> Vec<Line<'static>> {
+    let available = area_width.saturating_sub(FOOTER_INDENT_COLS as u16).max(1);
+    let width = if right_width == 0 {
+        available
+    } else {
+        max_left_width_for_right(Rect::new(0, 0, area_width, 1), right_width)
+            .unwrap_or(available)
+            .max(1)
+    };
+    word_wrap_lines(
+        std::iter::once(status_line.clone()),
+        RtOptions::new(usize::from(width)).break_words(true),
+    )
+}
+
+pub(crate) fn wrapped_status_line_height(
+    area_width: u16,
+    status_line: &Line<'static>,
+    right_width: u16,
+) -> u16 {
+    wrapped_status_line_rows(area_width, status_line, right_width)
+        .len()
+        .try_into()
+        .unwrap_or(u16::MAX)
 }
 
 /// Render footer content directly from `FooterProps`.

@@ -3,10 +3,31 @@
 //! Shortcut help grows above the input, preserving status and close rows below it even when clipped.
 
 use super::*;
+use crate::bottom_pane::footer::wrapped_status_line_height;
 
 impl ChatComposer {
     pub(super) fn status_surface_height(&self, options: ComposerRenderOptions<'_>) -> u16 {
         u16::from(options.separate_status_line && self.footer.status_line_enabled)
+    }
+
+    pub(super) fn status_surface_height_for_width(
+        &self,
+        width: u16,
+        options: ComposerRenderOptions<'_>,
+    ) -> u16 {
+        if self.status_surface_height(options) == 0 {
+            return 0;
+        }
+        let mut props = self.footer_props();
+        props.mode = FooterMode::ComposerHasDraft;
+        props.is_task_running = false;
+        let Some(line) = passive_footer_status_line(&props) else {
+            return 1;
+        };
+        let right_width = self
+            .mode_indicator_line(false)
+            .map_or(0, |line| line.width() as u16);
+        wrapped_status_line_height(width, &line, right_width).max(1)
     }
 
     pub(super) fn hint_footer_props(&self, options: ComposerRenderOptions<'_>) -> FooterProps {
@@ -71,10 +92,10 @@ impl ChatComposer {
             line
         };
         if let Some(line) = line {
-            render_footer_line(
+            render_footer_lines(
                 area,
                 buf,
-                truncate_line_with_ellipsis_if_overflow(line, usize::from(width)),
+                wrapped_status_line_rows(area.width, &line, right_width),
             );
         }
         if let Some(right) = right {

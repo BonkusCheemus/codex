@@ -15,8 +15,12 @@
 use std::time::Instant;
 
 use super::super::footer::footer_height;
+use super::super::footer::passive_footer_status_line;
 use super::super::footer::reset_mode_after_activity;
 use super::super::footer::shows_passive_footer_line;
+use super::super::footer::status_line_right_indicator_line;
+use super::super::footer::uses_passive_footer_status_layout;
+use super::super::footer::wrapped_status_line_height;
 use super::ActivePopup;
 use crate::bottom_pane::footer::FooterKeyHints;
 use crate::bottom_pane::footer::FooterProps;
@@ -277,7 +281,7 @@ impl super::ChatComposer {
         if self.show_warning_notice(options) || self.shortcuts_above_composer(options) {
             return 1;
         }
-        options
+        let base = options
             .footer
             .map_or_else(
                 || {
@@ -286,7 +290,26 @@ impl super::ChatComposer {
                 },
                 |footer| footer.text.height().try_into().unwrap_or(u16::MAX),
             )
-            .max(u16::from(options.separate_status_line))
+            .max(u16::from(options.separate_status_line));
+        if base > 1 || options.separate_status_line {
+            return base;
+        }
+        let props = self.hint_footer_props(options);
+        if !uses_passive_footer_status_layout(&props) {
+            return base;
+        }
+        let Some(line) = passive_footer_status_line(&props) else {
+            return base;
+        };
+        let right_width = status_line_right_indicator_line(
+            self.footer.collaboration_mode_indicator,
+            None,
+            false,
+            !self.is_task_running,
+        )
+        .map(|line| line.width() as u16)
+        .unwrap_or(0);
+        wrapped_status_line_height(width, &line, right_width).max(base)
     }
 
     pub(super) fn render_transcript_footer(

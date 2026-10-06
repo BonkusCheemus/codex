@@ -43,10 +43,12 @@ impl ChatComposer {
     ) -> ComposerLayout {
         let footer_hint_height = self.footer_hint_height(area.width, options);
         // Preserve input and hints before allocating the persistent status row.
-        let status_height = self.status_surface_height(options).min(
-            area.height
-                .saturating_sub(footer_hint_height.saturating_add(/*rhs*/ 3)),
-        );
+        let status_height = self
+            .status_surface_height_for_width(area.width, options)
+            .min(
+                area.height
+                    .saturating_sub(footer_hint_height.saturating_add(/*rhs*/ 3)),
+            );
         let status = Rect {
             y: area
                 .bottom()
@@ -186,7 +188,7 @@ impl ChatComposer {
         self.draft.textarea.desired_height(inner_width)
             + remote_images_height
             + remote_images_separator
-            + self.status_surface_height(options)
+            + self.status_surface_height_for_width(width, options)
             + if self.shortcuts_above_composer(options) {
                 footer_height(&self.hint_footer_props(options), width)
             } else {

@@ -446,3 +446,44 @@ fn activity_shortcut_help_follows_runtime_binding() {
     }
     insta::assert_snapshot!(snapshots.join("\n---\n"));
 }
+
+#[test]
+fn persistent_status_wraps_and_resizes_without_losing_fields() {
+    let mut composer = composer();
+    let fields = [
+        "MODEL-xhigh",
+        "PROJECT-directory",
+        "SESSION-name",
+        "CONTEXT-remaining",
+        "FIVE-HOUR-limit",
+        "WEEKLY-limit",
+        "COST-final",
+    ];
+    composer.set_status_line(Some(Line::from(fields.join(" | "))));
+    let options = ComposerRenderOptions {
+        separate_status_line: true,
+        ..ComposerRenderOptions::default()
+    };
+    for width in [80, 44, 200, 80] {
+        let (text, _) = render(&composer, width, None);
+        for field in fields {
+            assert!(
+                text.contains(field),
+                "missing {field} at width {width}: {text}"
+            );
+        }
+        assert!(!text.contains('…'), "truncated at {width}: {text}");
+        let status = composer
+            .layout_with_options(
+                Rect::new(
+                    0,
+                    0,
+                    width,
+                    composer.desired_height_with_options(width, options),
+                ),
+                options,
+            )
+            .status;
+        assert_eq!(status.height > 1, width < 200);
+    }
+}
